@@ -7,7 +7,7 @@ import networkx as nx
 import random
 # import numpy as np
 # import pdb
-# import ShowGraphs
+import ShowGraphs
 
 
 global mode
@@ -186,7 +186,6 @@ def generate_counterpart_graph(mapped_preds, G1, G2):
     G2_unmapped.remove_nodes_from(list(nx.isolates(G2_unmapped)))
     return counterpart_grf, G1_unmapped, G2_unmapped
 
-
 def generate_ismags_counterpart_graph(mapped_preds, G1, G2):
     """ Accepts lists of paired edges - without accompanying score"""
     counterpart_grf = nx.MultiDiGraph()
@@ -242,6 +241,7 @@ def analyse_lists_of_paired_tuples(tup_list_1, tup_list_2):  # 2 lists of edges 
 
 def graph_isomorphism_experiment(graph_size = 20, prob=0.10, deletions=0):
     import time
+    import ShowGraphs
     G1, G2 = nx.MultiDiGraph(), nx.MultiDiGraph()
     list1_paired_edges = []
     ##################################### Generate 2 Homomorphic Graphs #################################
@@ -261,7 +261,6 @@ def graph_isomorphism_experiment(graph_size = 20, prob=0.10, deletions=0):
     grf_id = int((time1*10000000) % 1000)
     show_FDG = False
     if show_FDG:
-        import ShowGraphs
         ShowGraphs.show_blended_space(G1_preds, [], [], \
             "Expt " + str(G1.number_of_nodes()) + " " + str(G1.number_of_edges()) + " " + str(grf_id) + " Tgt")
         ShowGraphs.show_blended_space(G2_preds, [], [], \
@@ -301,6 +300,7 @@ def graph_isomorphism_experiment(graph_size = 20, prob=0.10, deletions=0):
     # ############################################# ISMAGS #############################################
     new_G1_ismags, s_encoding, s_decoding = encode_graph_labels(G1)
     new_G2_ismags, t_encoding, t_decoding = encode_graph_labels(G2)
+    #largest_common_subgraph = nx.MultiDiGraph()
     counterpart_grf.clear()
     ismags = nx.isomorphism.ISMAGS(new_G1_ismags, new_G2_ismags)
     time1 = time.time()
