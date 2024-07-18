@@ -1,3 +1,6 @@
+# HOmomorphic Graph Search (HOGS) - Erdos-Renyi graphs
+# Subgraph Subgraph Isomorphism on Erdos-Renyi graph distributions
+#
 # HOGS is a heuristic algorithm that presumes that edges with greater arity
 # should be given a greater priority than edges with a smaller arity.
 # It explores the edge-space of graph-subgraph near isomorphism.
@@ -6,11 +9,6 @@
 # Edges are described by a 4-tuple of in/out degrees from a di-graph. 2 edges are compared by Wasserstein metric.
 # I believe it's an admissible heuristic! A narrow search space is explored heuristically.
 #
-# Homomorphic Erdos-Renyi Graph Search
-# Subgraph Subgraph Isomorphism Erdos-Renyi graph Search (HOGS - SSIS)
-# Can I use a simple if statement to skip over the second and subsequent edges on the target graph during search?
-# Homomorphic Graph Degree guided Search HGDGS
-# edge_align()
 
 import sys
 import math
@@ -18,7 +16,7 @@ import networkx as nx
 import numpy as np
 # import tqdm
 
-print(" Graph edit distance", nx.graph_edit_distance(nx.cycle_graph(6), nx.cycle_graph(7)))
+# print(" Graph edit distance", nx.graph_edit_distance(nx.cycle_graph(6), nx.cycle_graph(7)))
 # https://networkx.org/documentation/stable/reference/algorithms/similarity.html
 
 if False:
@@ -50,8 +48,8 @@ global s2v
 
 if False:
     from sense2vec import Sense2Vec
-    # s2v = Sense2Vec().from_disk("C:/Users/user/Documents/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
-    s2v = Sense2Vec().from_disk("C:/Users/dodonoghue/Documents/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
+    # s2v = Sense2Vec().from_disk("C:/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
+    s2v = Sense2Vec().from_disk("C:/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
     query = "drive|VERB"
     # assert query in s2v
     # print("s2v cat dog is ", s2v.similarity(['cat' + '|NOUN'], ['dog' + '|NOUN']))
@@ -729,11 +727,7 @@ gmp = [[['department', 'in', '1987'],       ['faculty', 'in', 'department'], 2.9
        [['faculty', 'in', 'department'],    ['arguments', 'is', 'faculty'], 2.585683170097039],
        [['department', 'awarded', 'Award'], ['faculty', 'are', 'inaccessible'], 3.0301199055244874],
        [['z', 'awarded', 'z'], ['z', 'are', 'z'], 3.0301199055244874]]
-#print(check_if_already_mapped('faculty','department',  gmp))  # False
-#print(check_if_already_mapped('1987','faculty',  gmp))  # False
-#print(check_if_already_mapped('z', 'z', gmp))  # True
-#print(check_if_already_mapped('department', 'faculty', gmp))  # True
-#print(check_if_already_mapped('1987', 'department', gmp))  # True
+
 
 def check_if_already_mapped_together(t_subj, t_obj, s_subj, s_obj, globl_mapped_predicates): # 2 mapped tokens
     """ boolean, irrespective of subject or object role"""
@@ -759,12 +753,6 @@ def check_if_both_unmapped(t_subj, s_subj, globl_mapped_predicates):
         elif t_subj == t_o or s_subj == s_o:
             return False
     return True
-# print(check_if_both_unmapped('department','faculty',  gmp))  # False
-# print(check_if_both_unmapped('1987','cat',  gmp))  # False
-# print(check_if_both_unmapped('cat', 'faculty', gmp))  # False
-# print(check_if_both_unmapped('cat', 'dog', gmp))  # True
-# print(check_if_both_unmapped('x', 'y', gmp))  # True
-# stop()
 
 
 def evaluate_mapping(target_graph, source_graph, globl_mapped_predicates, semantics=True):
@@ -1082,12 +1070,7 @@ def solve(G, H, n, m):
            cnt += 1
    return cnt
 
-# G = {(0, 1), (1, 0), (0, 2), (2, 0), (0, 3), (3, 0)}
-# H = {(0, 1), (1, 0), (1, 2), (2, 1), (2, 3), (3, 2)}
-# print(" solve(G, H, 4, 4) -> ", solve(G, H, 4, 4), end=" ")
-# H2 = {(0, 1), (1, 0), (0, 2), (2, 0), (0, 3), (3, 0)}
-# print(" solve(G, H2, 4, 4) -> ", solve(G, H, 4, 4), end=" ")
-# stop()
+
 # ##############################################################################################################
 # ##############################################################################################################
 # ##############################################################################################################
@@ -1152,9 +1135,6 @@ def build_graph_from_triple_list(triple_list):  # unused?
     return returnGraph  # results in the canonical  version of the graph :-)
 
 
-
-
-
 def addRelationsToMapping(target_graph, source_graph, mapping_dict, s_decoding, t_decoding):  # LCS_Number
     "new one. GM.mapping={(t,s), (t2,s2)...}"
     this_mapping = mapping_dict.copy()  # was GM.mapping.
@@ -1209,12 +1189,3 @@ def return_list_of_mapped_concepts(list_of_mapped_preds):
         mapping_dict[t_pred[2]] = s_pred[2]
     res = list(mapping_dict.items())
     return res
-
-
-
-# print(" HOGS Loaded \n")
-
-
-
-
-
