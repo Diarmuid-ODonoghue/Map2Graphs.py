@@ -181,7 +181,7 @@ def generate_counterpart_graph(mapped_preds, G1, G2):
         if b[1] == None:
             G2_unmapped.remove_edge(b[0], b[2])
         else:
-            G2_unmapped.remove_edge(b[0], b[2], label = a[1])
+            G2_unmapped.remove_edge(b[0], b[2], label = b[1])  # Mengqui repair a[1] to b[1]
     G1_unmapped.remove_nodes_from(list(nx.isolates(G1_unmapped)))  # remove unattached nodes
     G2_unmapped.remove_nodes_from(list(nx.isolates(G2_unmapped)))
     return counterpart_grf, G1_unmapped, G2_unmapped
