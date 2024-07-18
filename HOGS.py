@@ -49,8 +49,8 @@ global s2v
 
 if True:
     from sense2vec import Sense2Vec
-    # s2v = Sense2Vec().from_disk("C:/Users/user/Documents/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
-    s2v = Sense2Vec().from_disk("C:/Users/dodonoghue/Documents/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
+    # s2v = Sense2Vec().from_disk("C:/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
+    s2v = Sense2Vec().from_disk("C:/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
     # assert query in s2v
     #print("s2v cat dog = ", s2v.similarity(['cat' + '|NOUN'], ['dog' + '|NOUN']))
 
@@ -701,11 +701,6 @@ gmp = [[['department', 'in', '1987'],       ['faculty', 'in', 'department'], 2.9
        [['faculty', 'in', 'department'],    ['arguments', 'is', 'faculty'], 2.585683170097039],
        [['department', 'awarded', 'Award'], ['faculty', 'are', 'inaccessible'], 3.0301199055244874],
        [['z', 'awarded', 'z'], ['z', 'are', 'z'], 3.0301199055244874]]
-#print(check_if_already_mapped('faculty','department',  gmp))  # False
-#print(check_if_already_mapped('1987','faculty',  gmp))  # False
-#print(check_if_already_mapped('z', 'z', gmp))  # True
-#print(check_if_already_mapped('department', 'faculty', gmp))  # True
-#print(check_if_already_mapped('1987', 'department', gmp))  # True
 
 
 def check_if_both_unmapped(t_subj, s_subj, globl_mapped_predicates):
@@ -720,12 +715,6 @@ def check_if_both_unmapped(t_subj, s_subj, globl_mapped_predicates):
         elif t_subj == t_o or s_subj == s_o:
             return False
     return True
-# print(check_if_both_unmapped('department','faculty',  gmp))  # False
-# print(check_if_both_unmapped('1987','cat',  gmp))  # False
-# print(check_if_both_unmapped('cat', 'faculty', gmp))  # False
-# print(check_if_both_unmapped('cat', 'dog', gmp))  # True
-# print(check_if_both_unmapped('x', 'y', gmp))  # True
-# stop()
 
 
 def evaluate_mapping(target_graph, source_graph, globl_mapped_predicates, semantics=True):
@@ -912,7 +901,6 @@ def relational_distance(t_in, s_in):  # using s2v sense2vec
             sim_score = 1 - s2v.similarity([t_reln + '|VERB'], [s_reln + '|VERB'])
             s2v_verb_cache[t_reln + "-" + s_reln] = sim_score
             return sim_score
-# relational_distance("walk", "run") -> 0.5572440028190613
 
 
 def conceptual_distance(str1, str2):
@@ -959,7 +947,7 @@ def conceptual_distance(str1, str2):
             return 1.11
     else:
         return 1.116
-# conceptual_Distance("car", "bus") -> 0.51187253
+
 
 def intersection(lst1, lst2):
     lst3 = [value for value in lst1 if value in lst2]
@@ -1036,12 +1024,7 @@ def solve(G, H, n, m):
            cnt += 1
    return cnt
 
-# G = {(0, 1), (1, 0), (0, 2), (2, 0), (0, 3), (3, 0)}
-# H = {(0, 1), (1, 0), (1, 2), (2, 1), (2, 3), (3, 2)}
-# print(" solve(G, H, 4, 4) -> ", solve(G, H, 4, 4), end=" ")
-# H2 = {(0, 1), (1, 0), (0, 2), (2, 0), (0, 3), (3, 0)}
-# print(" solve(G, H2, 4, 4) -> ", solve(G, H, 4, 4), end=" ")
-# stop()
+
 # ##############################################################################################################
 # ##############################################################################################################
 # ##############################################################################################################
@@ -1101,6 +1084,4 @@ def return_list_of_mapped_concepts_DEPRECATED(list_of_mapped_preds):
         mapping_dict[t_pred[2]] = s_pred[2]
     res = list(mapping_dict.items())
     return res
-
-
 
