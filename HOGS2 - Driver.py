@@ -1,14 +1,15 @@
 # MCES4DG - # Maximum Common Edge Subgraph for Directed Graphs.
 # We focus specifically on the Non-induced common subgraph.
-# This is a heuristic algorithm that presumes that edges with greater arity anc most silimar arity are more likely to be mapped.
+# This is a heuristic algorithm that presumes that edges with greater arity anc most silimar arity are more likely
+# to be mapped.
 
-import HOGS2, HOGS
-import sys, math
+import HOGS2
+import HOGS
+import vf3py
+# import sys, math
 import time
-import ShowGraphs
 import networkx as nx
 import random
-# import numpy as np
 # import pdb
 import ShowGraphs
 from grandiso import find_motifs
@@ -18,7 +19,7 @@ global mode, term_separator
 global max_topology_distance
 global max_relational_distance
 global numeric_offset
-global G1, G2
+# global G1, G2
 
 
 max_topology_distance = 500  # in terms of a node's in/out degree
@@ -34,25 +35,31 @@ else:
 
 def generate_2_homomorphic_graphs_special():
     """ 2 Homomorphic Graphs for use by MCS edge non-induced """
-    common_G = nx.MultiDiGraph()
     tripl_list1, tripli_list2, list1_paired_edges = [], [], []
-    #common_G.add_edges_from([(1, 2), (2, 3), (2,3), (3,3), (3,3)])
-    #common_G.add_edges_from([(2,7), (2,3), (2,10), (10,3), (2,6), (9,2), (9,9), (11,9), (11,8), (8,11), (11,5), (5,12), (0,4)])
-    G1, G2 = nx.MultiDiGraph(), nx.MultiDiGraph()
-    G1.add_edges_from( [(1, 8), (2, 8), (8, 1), (3, 7), (3, 13), (4, 15), (4, 15), (5, 1), (5, 3), (5, 7), (11, 6), (12, 9), (15, 0), (15, 4), (16, 4)] )
-    G2.add_edges_from( [(1001, 1008), (1001, 1008), (1002, 1008), (1008, 1001), (1003, 1007), (1003, 1013), (1004, 1015), (1005, 1000),
-     (1005, 1001), (1005, 1003), (1005, 1007), (1010, 1015), (1011, 1006), (1012, 1009), (1012, 1010), (1015, 1000), (1015, 1004), (1016, 1004)] )
+    # common_G.add_edges_from([(1, 2), (2, 3), (2,3), (3,3), (3,3)])
+    # common_G.add_edges_from([(2,7), (2,3), (2,10), (10,3), (2,6), (9,2), (9,9), (11,9), (11,8), (8,11), (11,5),
+    # (5,12), (0,4)])
+    G1, G2, G_dud = nx.MultiDiGraph(), nx.MultiDiGraph(), nx.MultiDiGraph()
+    G1.add_edges_from([(0,2), (2, 7), (3, 11), (3, 16), (3, 18), (3, 22), (4, 2), (5, 21), (6, 2), (6, 22), (10, 15), (10, 21),
+     (11, 9), (12, 9), (12, 20), (14, 8), (14, 13), (15, 3), (18, 19), (19, 8), (20, 18), (20, 22), (21, 6), (24, 1)])
+    G1.add_node(99)
+    #G1.add_edges_from([(1001, 1008), (1001, 1008), (1002, 1008), (1008, 1001), (1003, 1007), (1003, 1013),
+    #    (1004, 1015), (1005, 1000), (9, 2), (9,2), (9,9),
+    #    (1005, 1001), (1005, 1003), (1005, 1007), (1010, 1015), (1011, 1006), (1012, 1009),
+    #    (1012, 1010), (1015, 1000), (1015, 1004), (1016, 1004)])
+    #G1.add_edges_from([(1,2), (2,3), (3,4), (1,5), (6,7), (6,7), (10,11)])
+    #G1.add_edges_from([(1001, 1008), (1001, 1008), (1002, 1008), (1,2), (1,2)])
+    G2 = G1.copy(as_view=False)
     if False:
         G1 = common_G.copy()
-
         remapping = {}
         remapping.clear()
         for node in G1.nodes():
             remapping[node] = node + numeric_offset
-        G2 = nx.relabel_nodes(G1, remapping, copy=True) #  duplicated the core graph.
+        G2 = nx.relabel_nodes(G1, remapping, copy=True)  # duplicated the core graph.
 
-    #G1.add_edge(3, 4) # then add some differences
-    #G2.add_edge(1002, 1003)
+    # G1.add_edge(3, 4) # then add some differences
+    # G2.add_edge(1002, 1003)
 
     for a, b in G1.edges():
         tripl_list1.append([a, "to", b])
@@ -61,7 +68,7 @@ def generate_2_homomorphic_graphs_special():
     return G1, G2, tripl_list1, tripli_list2
 
 
-def generate_2_homomorphic_graphs(graph_size = 55, prob=0.10, edge_deletions=0, node_deletions=0):
+def generate_2_homomorphic_graphs(graph_size=55, prob=0.10, edge_deletions=0, node_deletions=0):
     """ Generate 2 graphs, 1st with fewer edges than the second, forming Target and Source graphs. """
     global numeric_offset
     global G1, G2
@@ -75,22 +82,23 @@ def generate_2_homomorphic_graphs(graph_size = 55, prob=0.10, edge_deletions=0, 
     if G1.number_of_edges() > 3000:    # Largest Graph Considered
         print("Graph might be too big, Return [] [] ")
         return nx.MultiDiGraph(), nx.MultiDiGraph(), [], []
-
     tripl_list1, tripli_list2, list1_paired_edges = [], [], []
     remapping = {}
-
     remapping.clear()
     for node in G1.nodes():
         remapping[node] = node + numeric_offset
     G2 = nx.relabel_nodes(G1, remapping, copy=True)
     for a, b in G2.edges():
         tripli_list2.append([a, "to", b])
-    for i in range(node_deletions):
+    i = 0
+    while i < node_deletions and G1.number_of_nodes() > 0:
         zz = G1.nodes(data=True)
         sorted_lis = sorted(list(zz), reverse=True)
         my_max = sorted_lis[0][0]
-        indx = random.randint(0, my_max)
-        G1.remove_node(indx)
+        indx = random.randint(0, my_max-1)
+        if G1.has_node(indx):
+            G1.remove_node(indx)
+            i +=1
     for a, b in G1.edges():
         tripl_list1.append([a, "to", b])
     for i in range(edge_deletions):
@@ -120,12 +128,12 @@ def return_best_ismags_mapping_BACKUP(largest_common_subgraphs, t_encoding, t_de
     for dic in largest_common_subgraphs:  # dict of alternative solutions
         dict_1 = list(dic.items())
         dict_1.sort(key=lambda i: i[0])
-        node_map, pred_map = [], []  # node_map - mapped_edges, pred_map - list_of_mapped_preds_2
+        node_map, pred_map = [], []
         for z in t_decoding.keys():
-            node_map.append( (z, t_decoding[z]) )
-        for n1,n2 in G2.edges():
+            node_map.append((z, t_decoding[z]))
+        for n1, n2 in G2.edges():
             if n1 in t_encoding.keys() and n2 in t_encoding.keys():
-                pred_map.append([(t_encoding[n1], t_encoding[n2]), (n1, n2) ])
+                pred_map.append([(t_encoding[n1], t_encoding[n2]), (n1, n2)])
         pred_map.sort(key=lambda i: i[0])
 
         nod_scor, edg_scor = score_numeric_mapping(pred_map)
@@ -144,7 +152,7 @@ def return_best_ismags_mapping(largest_common_subgraphs, t_encoding, s_decoding,
     for this_mapping in largest_common_subgraphs:  # dict of alternative solutions
         pred_map = []  # node_map - mapped_edges, pred_map - list_of_mapped_preds_2
         node_map.clear()
-        for n1,n2 in G2.edges():
+        for n1, n2 in G2.edges():
             tn1_enc = t_encoding[n1]
             tn2_enc = t_encoding[n2]
             if tn1_enc in this_mapping.keys() and tn2_enc in this_mapping.keys():
@@ -303,6 +311,7 @@ def analyse_lists_of_paired_tuples(tup_list_1, tup_list_2):  # 2 lists of edges 
 # ########################################################################################################
 
 def emit(*args):
+    """ print, putting comma between list items, and adding a newline at the end """
     for a in args:
         print(a, end=", ")
     print(" ")
@@ -311,31 +320,20 @@ def emit(*args):
         out_lis.append(a )
     with open("Bigger-NodeDeletionResults.txt", "a") as file:
         file.write(str(out_lis) + "\n")
-    #print("\n", name, ",T=,", round(time_diff, 2), ",Del=,", edge_deletions, ",N-Dels,", node_deletions,
-    #      ",SIZE: Map'd Nods=,", round(len_mapping/max_map_nodes,2),
-    #      len_mapping,"/", max_map_nodes, ", Edg=,", len_list_of_mapped_preds_1, ",/,", max_map_edges,
-    #      round(len_list_of_mapped_preds_1/max_map_edges*100,2), ",%    CORRECT: Prft-Edg =,",
-    #      round((scr_edges/max_map_edges), 2), ",%  Pfct-Nod=,", scr_nodes, ", Pfct-Pred=,", scr_edges,
-    #      ",LCC,", len_largest_mapping_cc,",/,", len_largest_G1_cc,", ID,", grf_id)
 
-#emit("this", "is" , "a", "test")
-#emit("as", "is", "this", "is" , "a", "test")
-#stop()
 
 def graph_isomorphism_experiment(graph_size = 20, prob=0.10, edge_deletions=0, node_deletions=0):
-    #import time
-    #import ShowGraphs
-    global G1, G2
-    show_FDG = False
+    show_FDG = True
     list1_paired_edges = []
     ##################################### Generate 2 Homomorphic Graphs #################################
     G1, G2, tripli_list, tripli_list2 = generate_2_homomorphic_graphs(graph_size, prob, edge_deletions, node_deletions)
-    #G1, G2, tripli_list, tripli_list_2 = generate_2_homomorphic_graphs_special()
+    # G1, G2, tripli_list, tripli_list_2 = generate_2_homomorphic_graphs_special()
     G1.graph['Graphid'] = str(graph_size) + " " + str(prob) + " " + str(edge_deletions) + " orig"
     G2.graph['Graphid'] = str(graph_size) + " " + str(prob) + " " + str(edge_deletions) + " vrnt"
     print("# Edges ", G1.number_of_edges(), "&", G2.number_of_edges(), end="      ")
-    max_map_nodes = max( min(G1.number_of_nodes() - nx.number_of_isolates(G1),
-                         G2.number_of_nodes() - nx.number_of_isolates(G2)), 1)
+    g1_num_mappable_nodes = G1.number_of_nodes() - nx.number_of_isolates(G1)
+    g2_num_mappable_nodes = G2.number_of_nodes() - nx.number_of_isolates(G2)
+    max_map_nodes = max( min(g1_num_mappable_nodes, g2_num_mappable_nodes), 1)  # avoid x/0 error
     max_map_edges = max(min(G1.number_of_edges(), G2.number_of_edges()), 1)  # avoid /0 error
     G1_preds, G2_preds = return_edges_as_triple_list(G1), return_edges_as_triple_list(G2)
     siz_g1, siz_g2 = len(G1_preds), len(G2_preds)
@@ -343,11 +341,11 @@ def graph_isomorphism_experiment(graph_size = 20, prob=0.10, edge_deletions=0, n
         print("  ### Empty Graph ### ")
         return
     grf_id = int((time.time() * 10000000) % 1000)
-
+    #print("Isolates", nx.number_of_isolates(G1), nx.number_of_isolates(G2))
     if show_FDG and True:
-        ShowGraphs.show_blended_space(G1_preds, [], [], \
+        ShowGraphs.show_blended_space(G1_preds, [], [],
             "Expt " + str(G1.number_of_nodes()) + " " + str(G1.number_of_edges()) + " " + str(grf_id) + " Tgt ")
-        ShowGraphs.show_blended_space(G2_preds, [], [], \
+        ShowGraphs.show_blended_space(G2_preds, [], [],
             "Expt " + str(G1.number_of_nodes()) + " " + str(G1.number_of_edges()) + " " + str(grf_id) + " Src ")
     ################################## HOGS2 algorithm ###########################################
     time1 = time.time()
@@ -364,25 +362,30 @@ def graph_isomorphism_experiment(graph_size = 20, prob=0.10, edge_deletions=0, n
         generic_preds = return_edges_as_triple_list(counterpart_grf)
         unmapped_G1_edges = return_edges_as_triple_list(G1_unmapped)
         unmapped_G2_edges = return_edges_as_triple_list(G2_unmapped)
-        ShowGraphs.show_blended_space_big_nodes(G1, generic_preds, unmapped_G1_edges, unmapped_G2_edges, \
+        ShowGraphs.show_blended_space_big_nodes(G1, generic_preds, unmapped_G1_edges, unmapped_G2_edges,
             "Expt " + str(G1.number_of_nodes()) + " " + str(G1.number_of_edges()) + " " + str(grf_id) + " HOGS-2")
-    emit("\nHOGS2, ", siz_g1, ",", siz_g2, ",T= , ", round(time2, 4), ", E-Dels= ,", edge_deletions, ",N-Dels,", node_deletions,
-          ", SIZE: Map'd Nods= ,", round(len(mapping)/max_map_nodes,3), ", ", len(mapping)," , of , ", max_map_nodes,
-          ", Edg= , ", round(len(list_of_mapped_preds_1)/max_map_edges*100,3), ",%,", len(list_of_mapped_preds_1), ", of , ", max_map_edges,
-          ",     CORRECT: Prft-Edg= ,  ", round(scr_edges_pct, 3), ", %  Pfct-Nod= , ", scr_nodes, ", Pfct-Pred= , ", scr_edges,
-          ", LCC , ",len(largest_mapping_cc), ", ", len(largest_G1_cc),",  ID , ", grf_id)
-
+    emit("\nHOGS2 ", "Nodes", g1_num_mappable_nodes, g2_num_mappable_nodes, "Edges=",
+          siz_g1, siz_g2, "T= ", round(time2, 4), " E-Dels=", edge_deletions, " N-Dels= ", node_deletions,
+          " SIZE: Map'd Nods= ", round(100*len(mapping)/max_map_nodes,3), len(mapping), " of ", max_map_nodes,
+          " Edg=  ", round(len(list_of_mapped_preds_1)/max_map_edges*100,3), "%", len(list_of_mapped_preds_1), " of  ", max_map_edges,
+          " CORRECT: Prft-Edg= ", round(scr_edges_pct, 3), " % Pfct-Nod= ", scr_nodes, " Pfct-Pred=  ", scr_edges,
+          " LCC  ", len(largest_mapping_cc), "of", len(largest_G1_cc), "  ID  ", grf_id)
+    #return
+    # ############################ VF3 ############################
+    #  VF3 requires NON-multi graphs.
+    G1_undir = G1.to_undirected()
+    G2_undir = G2.to_undirected()
     # ############################################# VF2++ #############################################
     time1 = time.time()
     dic_res = nx.vf2pp_isomorphism(G1, G2)
     time_diff = time.time() - time1
     if dic_res:
-        emit("VF2pp Isomorp, ", siz_g1, ",", siz_g2, ",T= , ", round(time_diff, 4), ", E-Dels= ,", edge_deletions,
-              ",N-Dels,", node_deletions, " , nodes=", len(dic_res), " , ",
-              dic_res)
+        emit("VF2pp Isomorp, ", siz_g1, siz_g2, " T= ", round(time_diff, 4), " E-Dels= ", edge_deletions,
+              "N-Dels ", node_deletions, " nodes=", len(dic_res), dic_res)
     else:
-        emit("VF2pp Failed, ", siz_g1, ",", siz_g2, ",T= , ", round(time_diff, 4), ", E-Dels= ,", edge_deletions,
-              ",N-Dels,", node_deletions, " , nodes= 0")
+        emit("VF2pp Failed ", "Nodes", G1.number_of_nodes(), G2.number_of_nodes(), siz_g1, siz_g2,
+             " T= ", round(time_diff, 4), " E-Dels= ", edge_deletions, "N-Dels ", node_deletions, " nodes= 0")
+    return
     ################################## HOGS Original algorithm ###########################################
     time1 = time.time()
     list_of_mapped_preds_1, number_mapped_predicates, mapping = HOGS.generate_and_explore_mapping_space(G1, G2, False)
@@ -400,11 +403,15 @@ def graph_isomorphism_experiment(graph_size = 20, prob=0.10, edge_deletions=0, n
         unmapped_G2_edges = return_edges_as_triple_list(G2_unmapped)
         ShowGraphs.show_blended_space_big_nodes(G1, generic_preds, unmapped_G1_edges, unmapped_G2_edges, \
             "Expt " + str(G1.number_of_nodes()) + " " + str(G1.number_of_edges()) + " " + str(grf_id) + " HOGS-1")
-    emit("DFS HOGS-1, ", siz_g1, ",", siz_g2, ",T= , ", round(time2, 4), ", E-Dels= ,", edge_deletions, ",N-Dels,", node_deletions,
-          " , SIZE: Map'd Nods= , ", round(len(mapping)/max_map_nodes,3), " , ", len(mapping)," , of , ", max_map_nodes,
-          " , Edg= , ", round(len(list_of_mapped_preds_1)/max_map_edges*100,3),",%,", len(list_of_mapped_preds_1), " , of , ", max_map_edges,
-          ",    CORRECT: Prft-Edg = , ", round(scr_edges_pct, 3), " , % Pfct-Nod= , ", scr_nodes, " , Pfct-Pred= , ", scr_edges,
-          " , LCC , ",len(largest_mapping_cc), " , of ", len(largest_G1_cc)," ,  ID , ", grf_id)
+    emit("DFS HOGS-1 ", "Nodes", G1.number_of_nodes(), G2.number_of_nodes(), "Edges=",
+          siz_g1, siz_g2, "T=", round(time2, 4), "E-Dels=", edge_deletions, "N-Dels", node_deletions,
+          " SIZE: Map'd Nods=", round(len(mapping)/max_map_nodes,3), len(mapping), " of ", max_map_nodes,
+          " Edg= ", round(len(list_of_mapped_preds_1)/max_map_edges*100,3), "%", len(list_of_mapped_preds_1), "of", max_map_edges,
+          " CORRECT: Prft-Edg =", round(scr_edges_pct, 3), " % Pfct-Nod=", scr_nodes, " Pfct-Pred=", scr_edges,
+          " LCC ", len(largest_mapping_cc), " of ", len(largest_G1_cc), " ID", grf_id)
+    if scr_edges < siz_g1:
+        dud = 0
+    return
     # ######################################## Grandiso ##############################################
     time1 = time.time()
     # mapping_space = find_motifs(G1, G2)  # should work with Graph(), DiGraph()
@@ -420,17 +427,17 @@ def graph_isomorphism_experiment(graph_size = 20, prob=0.10, edge_deletions=0, n
         largest_G1_cc = max(nx.weakly_connected_components(G1), key=len)
     else:
         largest_mapping_cc, largest_G1_cc = {}, {}
-    emit("Grandiso, ", siz_g1, ",", siz_g2, ",T= , ", round(time2, 4),  ", E-Dels= ,", edge_deletions, ",N-Dels,", node_deletions,
-          " , SIZE: Map'd Nods= , ", round(len(best_Grandiso_mapping)/max_map_nodes,3), " , ",
-          len(best_Grandiso_mapping)," , of , ", max_map_nodes, " , Edg= , ", len(list_of_mapped_preds_1)," , of , ", max_map_edges, " , ",
-          round(best_scr/max_map_edges*100,2), " , %   CORRECT: Prft-Edg = , ", round(scr_edges_pct, 2),
-          " , %  Pfct-Nod= , ", scr_nodes, " , Pfct-Pred= , ", scr_edges,
-          " , LCC , ",len(largest_mapping_cc), " , ", len(largest_G1_cc)," ,  ID , ", grf_id)
-    return
+    emit("Grandiso ", siz_g1, siz_g2, "T=", round(time2, 4),  " E-Dels= ", edge_deletions, "N-Dels=", node_deletions,
+          " SIZE: Map'd Nods= ", round(len(best_Grandiso_mapping)/max_map_nodes,3),
+          len(best_Grandiso_mapping), " of ", max_map_nodes, "  Edg=", round(len(list_of_mapped_preds_1)/max_map_edges*100,3), "%",
+         len(list_of_mapped_preds_1), " of ", max_map_edges,
+          "CORRECT: Prft-Edg =", round(scr_edges_pct, 2),
+          " %  Pfct-Nod= ", scr_nodes, "  Pfct-Pred= ", scr_edges,
+          " LCC ", len(largest_mapping_cc), "of", len(largest_G1_cc), " ID ", grf_id)
     # ############################################# ISMAGS #############################################
     new_G1_ismags, s_encoding, s_decoding = encode_graph_labels(G1)
     new_G2_ismags, t_encoding, t_decoding = encode_graph_labels(G2)
-    largest_common_subgraph = nx.MultiDiGraph()
+    # largest_common_subgraph = nx.MultiDiGraph()
     ismags = nx.isomorphism.ISMAGS(new_G1_ismags, new_G2_ismags)
     time1 = time.time()
     largest_common_subgraph = list(ismags.largest_common_subgraph(symmetry=False))
@@ -446,17 +453,17 @@ def graph_isomorphism_experiment(graph_size = 20, prob=0.10, edge_deletions=0, n
         counterpart_grf, G1_unmapped, G2_unmapped = generate_ismags_counterpart_graph(largest_pred_map, G1, G2)
     if counterpart_grf.number_of_edges() > 0:
         largest_mapping_cc = max(nx.weakly_connected_components(counterpart_grf), key=len)
-    emit("ISMAGS, ", siz_g1, ",", siz_g2, ",T= , ", round(time2 - time1, 4),  ", E-Dels= ,", edge_deletions,
-          ",N-Dels,", node_deletions,
-          "  Map'D Nods= , ", round(largest_node_map/max_map_nodes,3),
+    emit("ISMAGS, ", siz_g1, siz_g2, " T=", round(time2 - time1, 4), " E-Dels=", edge_deletions,
+          "N-Dels=", node_deletions,
+          "  Map'D Nods=", round(largest_node_map/max_map_nodes,3),
           # " <<< ", largest_node_map , max_map_nodes, " >>> ",
           " , ", largest_node_map, " , of , ", max_map_nodes,
-          " , Edg= , ", len(largest_pred_map), " , of , ", max_map_edges, " , ",
-          round(len(largest_pred_map) / max_map_edges * 100, 2), ", of ,   CORRECT: , ",
-          round(100 * scr_edges / max_map_edges, 2), " , % edges  Prft-Nod= , ", scr_nodes,
-          " , P-Scor , ", scr_edges,
-          " , LCC , ", len(largest_mapping_cc), " , ", len(largest_G1_cc), " ,  ID , ", grf_id,
-          " , Same , ", same_iter, " ,   {", len(largest_common_subgraph), "} ,   ",)
+          " Edg=", len(largest_pred_map), " of ", max_map_edges,
+          round(len(largest_pred_map) / max_map_edges * 100, 2), " of   CORRECT: , ",
+          round(100 * scr_edges / max_map_edges, 2), " % edges  Prft-Nod=", scr_nodes,
+          " P-Scor ", scr_edges,
+          "  LCC  ", len(largest_mapping_cc), len(largest_G1_cc), "  ID ", grf_id,
+          " Same ", same_iter, "  {", len(largest_common_subgraph), "}    ",)
     generic_preds = return_edges_as_triple_list(counterpart_grf)
     unmapped_G1_edges = return_edges_as_triple_list(G1_unmapped)
     unmapped_G2_edges = return_edges_as_triple_list(G2_unmapped)
@@ -479,25 +486,46 @@ def graph_isomorphism_experiment(graph_size = 20, prob=0.10, edge_deletions=0, n
 
 
 def run_graph_matching_tests():
-    global G1, G2
-    G1, G2 = nx.MultiDiGraph(), nx.MultiDiGraph()
+    from datetime import datetime
     tot_edg_scr, loop_count = 0, 1
-    for siz in range(25, 300, 5):  # ~ nodes ...25
-        now_time = time.time()
-        z = time.ctime(now_time)
-        print("\n\n\n\#######", siz, "######################################### TIME:", z, end=" ")
-        for prob in range(25, 151, 25): # 70, 136, 30   ...35
+    for siz in range(25, 126, 25):
+        print("\n#######", siz, "######################################### TIME:", end=" ")
+        for prob in range(50, 151, 50):
+            current_dateTime = datetime.now()
+            print("TIME:", current_dateTime.hour, current_dateTime.minute)
             prob1 = prob / 1000
-            for dels in [0,1, 5, 30]: # range(1, 7, 2):   # dels=0 isomorphic graph matching, dels>0 homomorphic matching
-                print("EXPT. Size, ", siz, "Prob. ", prob, "  EDg Delet", dels, "NodeDels", 1, end="  ")
-                for repetition_n in range(5):  # reproducibility
-                    graph_isomorphism_experiment(graph_size=siz, prob=prob1, edge_deletions=dels, node_deletions=1)
-                    loop_count += 1
-                    print()
-                print("\n\n")
-            # stop()
+            for node_dels in [0, 1, 2]: #, 5, 30]:  # dels=0 isomorphic, dels>0 homomorphic matching
+                for edg_dels in [0, 1, 10]:
+                    print("EXPT.  Size ", siz, "Prob. ", prob, "  Edg Dels", edg_dels, "NodeDels", node_dels)
+                    for repetition_n in range(5):
+                        graph_isomorphism_experiment(graph_size=siz, prob=prob1, edge_deletions=edg_dels, node_deletions=node_dels)
+                        loop_count += 1
+                        print()
+            print("\n")
+            #stop()
     print("\n\nOVERALL", tot_edg_scr/loop_count)
-    # stop()
 
+
+if False:
+    g1, g2, g3, g4 = nx.MultiDiGraph(), nx.MultiDiGraph(), nx.MultiDiGraph(), nx.MultiDiGraph()
+    #g1.add_edges_from([(1, 2), (2, 3), (3,2), (3,1)])
+    #g2.add_edges_from([(11, 12), (12, 13), (13,12), (13,11)])
+    g1_1 = nx.gnm_random_graph(4, 5)
+    g1_2 = nx.gnm_random_graph(3, 4)
+    g1 = g1_1.to_directed()
+    g2 = g1_2.to_directed()
+    res, num_mapped_preds, map_dict = [], 0, {}
+    res, num_mapped_preds, map_dict = HOGS2.generate_and_explore_mapping_space(g1, g2, False)
+    print(res, num_mapped_preds, map_dict, "\n")
+
+    g3.add_edge("a", "b", label="e1")
+    g3.add_edge("b", "c", label="e1")
+    g3.add_edge("c", "a", label="e1")
+    g4.add_edge("a2", "b2", label="e1")
+    g4.add_edge("b2", "c2", label="e1")
+    g4.add_edge("c2", "a2", label="e1")
+    res, num_mapped_preds, map_dict = HOGS2.generate_and_explore_mapping_space(g3, g4, True)
+    print(res, num_mapped_preds)
+    stop()
 
 run_graph_matching_tests()

@@ -30,6 +30,7 @@ global term_separator
 global max_topology_distance
 global max_relational_distance, max_conceptual_distance
 global numeric_offset
+global global_mapped_predicates
 
 
 max_topology_distance = 20  # in terms of a node's in/out degree
@@ -49,8 +50,8 @@ global s2v
 
 if True:
     from sense2vec import Sense2Vec
-    # s2v = Sense2Vec().from_disk("C:/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
-    s2v = Sense2Vec().from_disk("C:/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
+    # s2v = Sense2Vec().from_disk("C:/Users/user/Documents/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
+    s2v = Sense2Vec().from_disk("C:/Users/dodonoghue/Documents/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
     # assert query in s2v
     #print("s2v cat dog = ", s2v.similarity(['cat' + '|NOUN'], ['dog' + '|NOUN']))
 
@@ -81,13 +82,10 @@ def MultiDiGraphMatcher(target_graph, souce_graph):
 def get_freq(word):
     return s2v.get_freq(word)
 
-def similarity_DEPRECATED(w1, w2):  # D
-    return s2v.similarity(w1,w2)
-
 
 # @staticmethod
 def generate_and_explore_mapping_space(target_graph, source_graph, semantics=True):  # new one
-    global current_best_mapping, bestEverMapping
+    global current_best_mapping, bestEverMapping, globl_mapped_predicates
     global beam_size, epsilon
     current_best_mapping, bestEverMapping = [], []
     if target_graph.number_of_edges() == 0 or source_graph.number_of_edges() == 0:
@@ -314,122 +312,6 @@ def second_head(node):
 # #####################################################################################################################
 
 
-def explore_mapping_space_BACKUP(t_grf, s_grf, t_preds_list, s_preds_list, globl_mapped_predicates, semantics=True):
-    """ Map the next target pred, by finding a mapping from the sources"""
-    global max_topology_distance
-    global bestEverMapping
-    if len(t_preds_list) + len(globl_mapped_predicates) < len(bestEverMapping):  # abandon early
-        return globl_mapped_predicates
-    if len(globl_mapped_predicates) > len(bestEverMapping):  # compare scores, not lengths?
-        if True and len(bestEverMapping) > 0:
-            print("¬¬ ", len(bestEverMapping), end=" ")
-        bestEverMapping = globl_mapped_predicates
-    if t_preds_list == [] or s_preds_list == []:
-        return globl_mapped_predicates
-    elif s_preds_list[0] == []:
-        return explore_mapping_space(t_grf, s_grf, t_preds_list, s_preds_list[1:], globl_mapped_predicates)
-    elif t_preds_list[0] == []:
-        explore_mapping_space(t_grf, s_grf, t_preds_list[1:], s_preds_list, globl_mapped_predicates)
-    elif t_preds_list != [] and s_preds_list[0] == []:
-        explore_mapping_space(t_grf, s_grf, t_preds_list, s_preds_list[1:], globl_mapped_predicates)
-        # return globl_mapped_predicates
-    elif t_preds_list == [] or s_preds_list == []:
-        if len(globl_mapped_predicates) > len(bestEverMapping):  # FIXME remove this condition, maybe?
-            bestEverMapping.append(globl_mapped_predicates)
-        return globl_mapped_predicates
-
-    t_subj_in, t_subj_out, a_to_b, b_to_a, t_obj_in, t_obj_out, p,q,r,s, t_subj, t_reln, t_obj = t_preds_list[0]
-                                                        # added p,q,r,s, JULY 2023
-    if type(s_preds_list[0]) is int:  # Error
-        sys.exit("s_preds_list[0]  should be a list")
-    if type(s_preds_list[0]) is list:  # FIXME RE-order s_pres_list[0] for intersection with globl_mapped_predicates
-        if s_preds_list[0] == []:
-            if len(s_preds_list) > 0:
-                if s_preds_list[0] == []:
-                    current_options = []
-                else:
-                    current_options = s_preds_list[1:][0]
-            else:
-                current_options = []
-        elif type(s_preds_list[0][0]) is list:  # alternates list
-            current_options = s_preds_list[0]
-        else:
-            current_options = [s_preds_list[0]]  # wrap the single pred within a list
-    else:
-        sys.exit("DFS.py Error - s_preds_list malformed :-(")
-    candidates = []
-    for singlePred in current_options:  # from s_preds_list
-        s_subj_in, s_subj_out, a_to_b, b_to_a, s_obj_in, s_obj_out, s_subj, s_reln, s_obj, composite_distance,\
-            reln_dist, subj_dist, obj_dist, topology_dist, h_prime = singlePred
-        dud_t_pred = t_subj, t_reln, t_obj
-        dud_s_pred = s_subj, s_reln, s_obj
-        mapped_subjects = check_if_already_mapped(t_subj, s_subj, globl_mapped_predicates)  # mapped together
-        mapped_objects = check_if_already_mapped(t_obj, s_obj, globl_mapped_predicates)
-        unmapped_subjects = check_if_both_unmapped(t_subj, s_subj, globl_mapped_predicates)  # unmapped target
-        unmapped_objects = check_if_both_unmapped(t_obj, s_obj, globl_mapped_predicates)
-        already_mapped_source = check_if_source_already_mapped([s_subj, s_reln, s_obj], globl_mapped_predicates) # check if source already mapped to something else
-        composite_distance = reln_dist + subj_dist + obj_dist + topology_dist # +h_prime
-        if t_subj == t_obj and s_subj == s_obj:  # both reflexive relations. ok.
-            pass  # that should be ok.
-        elif t_subj == t_obj and  s_subj != s_obj:  # ONLY one reflexive (not both, detected above) - bad. Skip
-            continue
-        elif t_subj != t_obj and  s_subj == s_obj:  # ONLY one reflexive (not both, detected above) - bad. Skip
-            continue
-        if mapped_subjects and mapped_objects:  # both arguments co-mapped - excellent
-            pass
-        elif unmapped_subjects and unmapped_objects:
-            pass  # great
-        elif (mapped_subjects and unmapped_objects) or (unmapped_subjects and mapped_objects):
-            pass
-        elif already_mapped_source:  # unavailable for mapping 22 Feb. 24
-            continue  # no match
-        elif mapped_subjects:  # and unmapped_objects  # Bonus for intersecting with the current mapping
-            composite_distance = composite_distance / 3.0
-        elif not unmapped_subjects:  # nope
-            continue            # composite_distance = composite_distance # max_topology_distance
-        elif mapped_objects:
-            composite_distance = composite_distance / 3.0
-        elif not unmapped_objects:
-            continue
-        else:
-            pass  # unexpected
-        # Confirm that candidate
-        if s_subj == s_obj or t_subj == t_obj:    # Reflexive relations? detect and duplicate
-            if (s_subj == s_obj and t_subj != t_obj) or (s_subj != s_obj and t_subj == t_obj):
-                composite_distance = max_topology_distance
-            else:
-                candidates = candidates + [[composite_distance, s_subj, s_reln, s_obj]]
-        else:
-            candidates = candidates + [[composite_distance, s_subj, s_reln, s_obj]]
-        dud = 0
-    candidates.sort(key=lambda x: x[0])
-    # subj_in, subj_out, s_o, o_s, obj_in, obj_out, sub_pr, obj_pr, sub_sub, obj_obj, S,V,O
-    for dist, s_subj, s_reln, s_obj in candidates:  # assign best
-        if semantics and relational_distance(t_reln, s_reln) > max_relational_distance:
-            continue
-        candidate_pair = [[t_subj, t_reln, t_obj], [s_subj, s_reln, s_obj], dist]
-        if (check_if_already_mapped(t_subj, s_subj, globl_mapped_predicates) or    # add candidate_pair to mapping
-                check_if_both_unmapped(t_subj, s_subj, globl_mapped_predicates)):
-            if check_if_already_mapped(t_obj, s_obj, globl_mapped_predicates) or \
-                    check_if_both_unmapped(t_obj, s_obj, globl_mapped_predicates):
-                new_list = globl_mapped_predicates
-                t_num_edges = num_edges_connecting(t_grf, t_subj, t_obj)
-                s_num_edges = num_edges_connecting(s_grf, s_subj, s_obj)
-                if t_num_edges > 1 and s_num_edges > 1:  # FIXME or or and
-                    compatible_edges = add_consistent_multi_edges_to_mapping(t_grf, s_grf, t_subj, t_reln, t_obj,
-                                            s_subj, s_reln, s_obj, candidate_pair, globl_mapped_predicates, semantics)
-                    if compatible_edges: # FIXME check for duplications first
-                        new_list = globl_mapped_predicates + compatible_edges # candidate pair included, as appropriate
-                else:
-                    new_list = globl_mapped_predicates + [candidate_pair]
-                return explore_mapping_space(t_grf, s_grf, t_preds_list[1:], s_preds_list[1:], new_list)
-        return explore_mapping_space(t_grf, s_grf, t_preds_list, s_preds_list[1:], globl_mapped_predicates)  # FIXME 2024 4 05
-    return explore_mapping_space(t_grf, s_grf, t_preds_list[1:], s_preds_list[1:], globl_mapped_predicates) # skip candidate_pair
-    print(" **REACHED HERE**")
-    return explore_mapping_space(t_grf, s_grf, t_preds_list[1:], s_preds_list, globl_mapped_predicates)  # FIXME remove
-    return explore_mapping_space(t_grf, s_grf, t_preds_list, s_preds_list[1:], globl_mapped_predicates)  # FIXME remove
-
-
 def explore_mapping_space(t_grf, s_grf, t_preds_list, s_preds_list, globl_mapped_predicates, semantics=True):
     """ Map the next target pred, by finding a mapping from the sources"""
     global max_topology_distance
@@ -574,8 +456,6 @@ def align_words_by_s2v(lis1, lis2):
     while i < len(overall_list):  # min(len(lis1), len(lis2)):
         j = 0
         while j < len(overall_list[i][1]):
-            # dud = overall_list[i][1][j][1]
-            # print(" overall_list[i][1][j][1] ", dud)
             if overall_list[i][1][j][1] not in used_list:
                 rslt += [[overall_list[i][0], overall_list[i][1][j][1], overall_list[i][1][j][0]]]
                 used_list += [overall_list[i][1][j][1]]
@@ -664,23 +544,6 @@ def check_if_source_and_target_already_mapped(t_pred, s_pred, globl_mapped_predi
     return False
 
 
-def check_if_already_mapped_OLD_VERSION(t_subj, s_subj, globl_mapped_predicates):
-    """ boolean, irrespective of subject or object role"""
-    if globl_mapped_predicates == []:
-        return False
-    for x in globl_mapped_predicates:  # FIXME returns false positive :-(
-        t_s, t_v, t_o = x[0]
-        s_s, s_v, s_o = x[1]
-        if t_subj == t_s and s_subj == s_s:
-            return True
-        elif t_subj == t_o and s_subj == s_o:
-            return True  # for reflexive relations...
-        elif t_subj == s_s and s_subj == t_o:
-            return True
-        elif t_subj == s_o and s_subj == t_s:
-            return True
-    return False
-
 
 def check_if_already_mapped(tgt_token, src_token, globl_mapped_predicates): # 2 mapped tokens
     """ boolean, irrespective of subject or object role"""
@@ -701,6 +564,11 @@ gmp = [[['department', 'in', '1987'],       ['faculty', 'in', 'department'], 2.9
        [['faculty', 'in', 'department'],    ['arguments', 'is', 'faculty'], 2.585683170097039],
        [['department', 'awarded', 'Award'], ['faculty', 'are', 'inaccessible'], 3.0301199055244874],
        [['z', 'awarded', 'z'], ['z', 'are', 'z'], 3.0301199055244874]]
+#print(check_if_already_mapped('faculty','department',  gmp))  # False
+#print(check_if_already_mapped('1987','faculty',  gmp))  # False
+#print(check_if_already_mapped('z', 'z', gmp))  # True
+#print(check_if_already_mapped('department', 'faculty', gmp))  # True
+#print(check_if_already_mapped('1987', 'department', gmp))  # True
 
 
 def check_if_both_unmapped(t_subj, s_subj, globl_mapped_predicates):
@@ -717,50 +585,50 @@ def check_if_both_unmapped(t_subj, s_subj, globl_mapped_predicates):
     return True
 
 
+
 def evaluate_mapping(target_graph, source_graph, globl_mapped_predicates, semantics=True):
-    """[[['hawk_Karla_she', 'saw', 'hunter'], ['hawk_Karla_she', 'know', 'hunter'], 0.715677797794342], [['h"""
+    """ Generate the mapping dictionary from globl_mapped_predicates.
+    [[['hawk_Karla_she', 'saw', 'hunter'], ['hawk_Karla_she', 'know', 'hunter'], 0.715677797794342], [['h"""
     global mapping
     mapping = dict()
     relatio_structural_dist = 0
     paired_relations = []
     rel_s2v, con_s2v, scor = 0, 0, 0
-    unmapped_target_preds = return_unmapped_target_preds(target_graph, globl_mapped_predicates)
-    unmapped_source_preds = return_unmapped_source_preds(source_graph, globl_mapped_predicates)
     for t_pred, s_pred, val in globl_mapped_predicates:  # full predicates
         relatio_structural_dist += val
         if t_pred == [] or s_pred == []:
             continue
         elif t_pred[0] in mapping.keys():
-            if mapping[t_pred[0]] == s_pred[0]:  # extend the mapping
-                scor += 0.5
-            else:
+            if mapping[t_pred[0]] != s_pred[0]:  # extend the mapping
                 print(" Mis-Mapping 1 in DFS ")
                 sys.exit(" Mis-Mapping 1 in DFS ")
         else:
             if s_pred[0] not in mapping.values():
                 mapping[t_pred[0]] = s_pred[0] # new mapping
-                scor += 0.25
             else:
                 sys.exit("Mis Mapping 1 b")
         if t_pred[2] in mapping.keys():  # PTNT role
-            if mapping[t_pred[2]] == s_pred[2]:  # extend the mapping
-                scor += 0.5
-            else:
+            if mapping[t_pred[2]] != s_pred[2]:  # extend the mapping
                 print(t_pred, "    ", s_pred)
                 sys.exit(" Mis-Mapping 2 in DFS")
         else:
             if s_pred[2] not in mapping.values():
                 mapping[t_pred[2]] = s_pred[2] # new mapping
-                scor += 0.25
             else:
                 sys.exit(" Mis-Mapping 2 PTNT in DFS ")
         paired_relations.append([t_pred[1], s_pred[1]])
         rel_s2v += relational_distance(t_pred[1], s_pred[1])
-    # print(" Next: mop-up", end=" ")
-    extra_mapped_preds, mapping_item_pairs = \
-        possible_mop_up_achievable(unmapped_target_preds, unmapped_source_preds, bestEverMapping, mapping)
-    #if extra_mapped_preds != []:
-    #    globl_mapped_predicates.append(extra_mapped_preds[0])  # globl_mapped_predicates.extend(mapping_extra)
+    # Extend the mapping
+    print(" Next: mop-up", end=" ")
+    count_limit = 0
+    while True and count_limit < 3:
+        unmapped_target_preds = return_unmapped_target_preds(target_graph, globl_mapped_predicates)
+        unmapped_source_preds = return_unmapped_source_preds(source_graph, globl_mapped_predicates)
+        extra_mapped_preds, mapping_item_pairs = \
+            possible_mop_up_achievable(unmapped_target_preds, unmapped_source_preds, bestEverMapping, mapping)
+        if extra_mapped_preds == [] or unmapped_target_preds == [] or unmapped_source_preds == []:
+            break
+        count_limit += 1
     if semantics:
         for k,v in mapping.items():
             con_s2v += conceptual_distance(k,v)
@@ -810,17 +678,20 @@ def possible_mop_up_achievable(t_preds_list, s_preds_list, bestEverMapping, mapp
                 continue
             elif conceptual_distance(t_obj, s_obj) >= max_conceptual_distance:
                 continue
-            if check_if_already_mapped(t_subj, s_subj, bestEverMapping) and \
-                    relational_distance(t_rel, s_rel) < max_relational_distance and \
-                    check_if_both_unmapped(t_obj, s_obj, bestEverMapping):
-                mapping_extra.append([[t_subj, t_rel, t_obj], [s_subj, s_rel, s_obj], 1.1])
-                bestEverMapping.append([[t_subj, t_rel, t_obj], [s_subj, s_rel, s_obj], 1.1])  # Aug 23
+            subjects_compatible = (check_if_already_mapped(t_subj, s_subj, bestEverMapping) or
+                                   check_if_both_unmapped(t_subj, s_subj, bestEverMapping))
+            objects_compatible = (check_if_already_mapped(t_obj, s_obj, bestEverMapping) or
+                                  check_if_both_unmapped(t_obj, s_obj))
+            if subjects_compatible and objects_compatible:
+                mapping_extra.append([[t_subj, t_rel, t_obj], [s_subj, s_rel, s_obj], 1.11])
+                bestEverMapping.append([[t_subj, t_rel, t_obj], [s_subj, s_rel, s_obj], 1.11])
+                mapped_concepts[t_subj] = s_subj
                 mapped_concepts[t_obj] = s_obj
-            elif check_if_already_mapped(t_obj, s_obj, bestEverMapping) and \
-                    relational_distance(t_rel, s_rel) < max_relational_distance and \
-                    check_if_both_unmapped(t_subj, s_subj, bestEverMapping):
+                break
+            elif (check_if_already_mapped(t_obj, s_obj, bestEverMapping) or
+                  check_if_both_unmapped(t_subj, s_subj, bestEverMapping)):
                 mapping_extra += [[[t_subj, t_rel, t_obj], [s_subj, s_rel, s_obj], 1.11]]
-                bestEverMapping.append([[t_subj, t_rel, t_obj], [s_subj, s_rel, s_obj], 1.11])  # Aug 23
+                bestEverMapping.append([[t_subj, t_rel, t_obj], [s_subj, s_rel, s_obj], 1.11])
                 mapped_concepts[t_subj] = s_subj
             elif try_harder == True and check_if_both_unmapped(t_subj, s_subj, bestEverMapping) \
                     and check_if_both_unmapped(t_obj, s_obj, bestEverMapping) and \
@@ -901,6 +772,7 @@ def relational_distance(t_in, s_in):  # using s2v sense2vec
             sim_score = 1 - s2v.similarity([t_reln + '|VERB'], [s_reln + '|VERB'])
             s2v_verb_cache[t_reln + "-" + s_reln] = sim_score
             return sim_score
+# relational_distance("walk", "run") -> 0.5572440028190613
 
 
 def conceptual_distance(str1, str2):
@@ -947,7 +819,7 @@ def conceptual_distance(str1, str2):
             return 1.11
     else:
         return 1.116
-
+# conceptual_Distance("car", "bus") -> 0.51187253
 
 def intersection(lst1, lst2):
     lst3 = [value for value in lst1 if value in lst2]
@@ -960,7 +832,6 @@ def return_sorted_predicates(grf):  # 6 terms plus PageRank
     pred_list = []
     pr = nx.pagerank(grf, alpha=0.85)
     # centrality = nx.degree_centrality(grf)
-    #grf_rev = generate_reversed_edge_graph(grf)
     #pr_rev = nx.pagerank(grf_rev, alpha=0.85)
     #pr_lis = [round(x,4) for x in list(pr.values())]
     #pr_rev_lis = [round(x, 4) for x in list(pr_rev.values())]
@@ -992,13 +863,6 @@ def return_edges_relations_UNUSED(G):  # returnEdges(sourceGraph)
     return res
 
 
-def generate_reversed_edge_graph(g1):
-    g2 = nx.MultiDiGraph()
-    for u,v,a in g1.edges(data=True):
-        g2.add_edge(v,u, label=a)
-    return g2
-
-
 # ##############################################################################################################
 # ##############################################################################################################
 # ##############################################################################################################
@@ -1024,7 +888,12 @@ def solve(G, H, n, m):
            cnt += 1
    return cnt
 
-
+# G = {(0, 1), (1, 0), (0, 2), (2, 0), (0, 3), (3, 0)}
+# H = {(0, 1), (1, 0), (1, 2), (2, 1), (2, 3), (3, 2)}
+# print(" solve(G, H, 4, 4) -> ", solve(G, H, 4, 4), end=" ")
+# H2 = {(0, 1), (1, 0), (0, 2), (2, 0), (0, 3), (3, 0)}
+# print(" solve(G, H2, 4, 4) -> ", solve(G, H, 4, 4), end=" ")
+# stop()
 # ##############################################################################################################
 # ##############################################################################################################
 # ##############################################################################################################
@@ -1084,4 +953,6 @@ def return_list_of_mapped_concepts_DEPRECATED(list_of_mapped_preds):
         mapping_dict[t_pred[2]] = s_pred[2]
     res = list(mapping_dict.items())
     return res
+
+
 
