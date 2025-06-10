@@ -1,11 +1,10 @@
-# HOGS is a heuristic algorithm that presumes that edges with greater arity
+ # HOGS is a heuristic algorithm that presumes that edges with greater arity
 # should be given a greater priority than edges with a smaller arity.
 # It explores the edge-space of graph-subgraph near isomorphism.
 # loosely inspired by Nawaz, Enscore and Ham (NEH) algorithm
 # local optimisation, near the global optimum.
 # Edges are described by a 4-tuple of in/out degrees from a di-graph. 2 edges are compared by Wasserstein metric.
 # I believe it's an admissible heuristic! A narrow search space is explored heuristically.
-#
 # Homomorphic Erdos-Renyi Graph Search
 # Subgraph Subgraph Isomorphism Erdos-Renyi graph Search (HOGS - SSIS)
 # Can I use a simple if statement to skip over the second and subsequent edges on the target graph during search?
@@ -17,13 +16,6 @@ import math
 import networkx as nx
 import numpy as np
 # import tqdm
-
-print(" Graph edit distance", nx.graph_edit_distance(nx.cycle_graph(6), nx.cycle_graph(7)))
-# https://networkx.org/documentation/stable/reference/algorithms/similarity.html
-
-if True:
-    from nltk.stem import WordNetLemmatizer
-    wnl = WordNetLemmatizer()
 
 global mode
 global term_separator
@@ -37,9 +29,9 @@ global target_number_of_nodes
 global target_number_of_edges
 global source_number_of_nodes
 global source_number_of_edges
+global wnl
 
-max_relational_distance = 0.99
-semantic_threshold = 0.9 # MAXimum semantic distance allowed.
+
 max_topology_distance = 20  # in terms of a node's in/out degree
 numeric_offset = 1000
 beam_size = 4  # beam breadth for beam search
@@ -47,27 +39,28 @@ epsilon = 100
 current_best_mapping = []
 bestEverPredMapping = []
 bestEverNodeMapping = {}
+
+
 mode = "English"
-#mode = 'Code'
-
-
+mode = 'Code'
 if mode == "English":
     term_separator = "_"  # Map2Graphs.term_separator
+    max_conceptual_distance = 0.4999
+    max_relational_distance = 0.4999
+    semantic_threshold = 0.9  # MAXimum semantic distance allowed.
+    if True:
+        from nltk.stem import WordNetLemmatizer
+        wnl = WordNetLemmatizer()
 else:
     term_separator = ":"
+    max_conceptual_distance = 0.88
 
 global s2v
-
-if True:
+if False: # Not need for source code operations
     from sense2vec import Sense2Vec
     # s2v = Sense2Vec().from_disk("C:/Users/user/Documents/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
     s2v = Sense2Vec().from_disk("C:/Users/dodonoghue/Documents/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
     query = "drive|VERB"
-    # assert query in s2v
-    # print("s2v cat dog is ", s2v.similarity(['cat' + '|NOUN'], ['dog' + '|NOUN']))
-    #
-    # vector = s2v[query]
-    # freq = s2v.get_freq(query)
 
 
 global s2v_verb_cache
@@ -84,9 +77,6 @@ s2v_noun_cache = {'abc': 0}  # to avoid a null key problem
 def find_nearest(vec):
     for key, vec in s2v.items():
         print(key, vec)
-
-
-
 
 
 def MultiDiGraphMatcher(target_graph, souce_graph):
@@ -108,13 +98,19 @@ def similarity(w1, w2):
 
 
 
-
 # @staticmethod
-def generate_and_explore_mapping_space(target_graph, source_graph, semantics=True):  # new one
+def generate_and_explore_mapping_space(target_graph, source_graph, semantics=True,
+                                       identical_edges_only=True):  # new one
     global current_best_mapping, bestEverPredMapping, semantic_threshold, epsilon
     global tgt_edge_vector_dict, src_edge_vector_dict, beam_size
     global target_number_of_nodes, target_number_of_edges
     global source_number_of_nodes, source_number_of_edges
+    global mode, max_relational_distance
+    if identical_edges_only:
+        mode = "Code"
+        max_relational_distance = 0.01
+    else:
+        mode = "English"
     target_number_of_nodes = target_graph.number_of_nodes()
     target_number_of_edges = target_graph.number_of_edges()
     source_number_of_nodes = source_graph.number_of_nodes()
@@ -123,31 +119,31 @@ def generate_and_explore_mapping_space(target_graph, source_graph, semantics=Tru
     tgt_edge_vector_dict, src_edge_vector_dict = {}, {}
     if target_graph.number_of_edges() == 0 or source_graph.number_of_edges() == 0:
         return [], 0, {}
-    uniq_target_pairs = trim_multi_edges(target_graph)   # separate iteration over self edges
+    uniq_target_pairs = trim_multi_edges(target_graph)   # separate iteration over self-edges
     uniq_source_pairs = trim_multi_edges(source_graph)
     # Selects ONE SAMPLE relation in each direction
     ordered_target_preds, tgt_edge_vector_dict = return_sorted_predicates(target_graph, uniq_target_pairs)  # search only over reduced space with
     ordered_source_preds, src_edge_vector_dict = return_sorted_predicates(source_graph, uniq_source_pairs)
     ordered_candidate_sources = []
+    bestEverPredMapping, mapping, relatio_structural_dist, rel_s2v, rel_count, con_s2v, con_count = [], [], \
+        0.0, 0.0, 0, 0.0, 0
     for sum_t_vec, t_subj, t_obj in ordered_target_preds:  # start from most highly referenced nodes
         best_distance, composite_distance, best_subj, best_reln, best_obj \
                           = sys.maxsize, sys.maxsize, "nil", "nil", "nil"
         alternate_candidates, alternates_confirmed = [], []
         tgt_vect = tgt_edge_vector_dict[t_subj, t_obj]
-        #t_relns = target_graph.get_edge_data(t_subj, t_obj)
         t_relns = return_edges_between_these_objects(t_subj, t_obj, target_graph)
         for sum_s_vec, s_subj, s_obj in ordered_source_preds:
             src_vect = src_edge_vector_dict[s_subj, s_obj]
             diff_vect = compare_vectors(tgt_vect, src_vect)
             s_relns = return_edges_between_these_objects(s_subj, s_obj, source_graph)
             topology_dist = np.sqrt(sum(diff_vect))  # rms_topology_dist
-            if topology_dist > max_topology_distance:
-                print("MAX topology distance", end="")
+            if False and topology_dist > max_topology_distance:
+                print(" MAX topol dist", end="")
                 continue
             elif ((t_subj == t_obj) and (s_subj != s_obj)) or ((s_subj == s_obj) and (t_subj != t_obj)):
                 continue   # if one is a self-map && the other not ... then no match
             if semantics:
-                #s_relns = source_graph.get_edge_data(s_subj, s_obj)
                 s_relns = return_edges_between_these_objects(s_subj, s_obj, source_graph)
                 reslt_lis = align_relations_single_arity_only(t_relns, s_relns, semantics)  # reslt_lis[0] is best
                 reln_dist = reslt_lis[0][0]  # most similar relations - relational_distance(t_reln, s_reln)
@@ -160,6 +156,7 @@ def generate_and_explore_mapping_space(target_graph, source_graph, semantics=Tru
                 reln_dist, subj_dist, obj_dist, t_reln, s_reln = 0, 0, 0, None, None
             combo_dist = scoot_ahead(t_subj, t_relns[0], t_obj, s_subj, s_relns[0], s_obj, source_graph, target_graph, semantics)
             # h_prime = combo_dist # math.sqrt(combo_dist)  # level=1
+            # print(reln_dist,  subj_dist , obj_dist, topology_dist)
             composite_distance = ((reln_dist + subj_dist + obj_dist)*2.1) + (topology_dist) #+ (h_prime)
             #composite_distance = (reln_dist*5 + subj_dist + obj_dist) + topology_dist/2 + h_prime/2
             if composite_distance < best_distance:         # minimize distance
@@ -175,8 +172,15 @@ def generate_and_explore_mapping_space(target_graph, source_graph, semantics=Tru
         ordered_candidate_sources.append(alternates_confirmed)  # ordered_candidate_sources
     reslt = explore_mapping_space(target_graph, source_graph, ordered_target_preds, ordered_candidate_sources,
                                       [], semantics)
-    zz = evaluate_mapping(target_graph, source_graph, reslt, semantics)  # bestEverPredMapping
-    return bestEverPredMapping, len(bestEverPredMapping), mapping
+    relatio_structural_dist, rel_s2v, rel_count, con_s2v, con_count = \
+        evaluate_mapping(target_graph, source_graph, reslt, semantics)  # bestEverPredMapping
+    print("SCORES-HOGS2", relatio_structural_dist, " ", rel_s2v, rel_count, con_s2v, rel_count)
+    dud = 0
+    #if target_graph.graph['Graphid'] == "98 Ratterman E3 2 MereApp.T.RVB":
+    print("***")
+    print('Graphid',  target_graph.graph['Graphid'] )
+    return bestEverPredMapping, len(bestEverPredMapping), mapping, relatio_structural_dist, rel_s2v, rel_count, \
+        con_s2v, con_count
 
 
 def trim_multi_edges(grf):  # remove Multi edges from iterable search space
@@ -481,8 +485,8 @@ def explore_mapping_space(t_grf, s_grf, t_preds_list, s_preds_list, globl_mapped
     for dist, s_subj, s_reln, s_obj in candidates:  # assign best
         if semantics and relational_distance(t_reln, s_reln) > max_relational_distance:
             continue
-        # TODO elif conceptual_distance(t_reln, s_reln) > max_conceptual_distance:
-        #    continue
+        elif conceptual_distance(t_reln, s_reln) > max_conceptual_distance:
+            continue
         t_vect = tgt_edge_vector_dict[t_subj, t_obj]
         s_vect = src_edge_vector_dict[s_subj, s_obj]
         # TODO elif compare_vectors(t_vect, s_vect) > max_vector_distance:
@@ -497,7 +501,7 @@ def explore_mapping_space(t_grf, s_grf, t_preds_list, s_preds_list, globl_mapped
                 t_num_edges = num_edges_connecting(t_grf, t_subj, t_obj)
                 s_num_edges = num_edges_connecting(s_grf, s_subj, s_obj)
 
-                if t_num_edges > 1 and s_num_edges > 1:  # FIXME or or and  # multi_edges
+                if t_num_edges > 1 and s_num_edges > 1:  # multi_edges
                     compatible_edges = add_consistent_multi_edges_to_mapping(t_grf, s_grf, t_subj, t_reln, t_obj,
                                             s_subj, s_reln, s_obj, candidate_pair, globl_mapped_predicates, semantics)
                     if compatible_edges: # FIXME check for duplications first
@@ -616,12 +620,6 @@ def list_diff(li1, li2):
             temp3.append(element)
     return temp3
 
-def count_occurrences_of_tuple_in_list_UNUSED(tupl_1, tupl_2, list_of_node_pairs):
-    count = 0
-    for prd in list_of_node_pairs:
-        if tupl_1 == prd[0] and tupl_2 == prd[1]:
-            count += 1
-    return count
 
 def check_if_source_already_mapped(s_pred, globl_mapped_predicates):
     if s_pred == [] or globl_mapped_predicates == []:
@@ -707,7 +705,7 @@ def evaluate_mapping(target_graph, source_graph, globl_mapped_predicates, semant
     mapping = dict()
     relatio_structural_dist = 0
     paired_relations = []
-    rel_s2v, con_s2v, scor = 0, 0, 0
+    rel_s2v, con_s2v, con_count, rel_count, scor = 0, 0, 0, 0, 0
     unmapped_target_preds = return_unmapped_target_preds(target_graph, globl_mapped_predicates, semantics)
     unmapped_source_preds = return_unmapped_source_preds(source_graph, globl_mapped_predicates, semantics)
     for t_pred, s_pred, val in globl_mapped_predicates:  # full predicates
@@ -739,16 +737,23 @@ def evaluate_mapping(target_graph, source_graph, globl_mapped_predicates, semant
             else:
                 sys.exit(" Mis-Mapping 2 PTNT in DFS ")
         paired_relations.append([t_pred[1], s_pred[1]])
-        rel_s2v += relational_distance(t_pred[1], s_pred[1])
+        # rel_s2v += relational_distance(t_pred[1], s_pred[1])
     extra_mapped_preds, mapping_item_pairs = \
         possible_mop_up_achievable(unmapped_target_preds, unmapped_source_preds, bestEverPredMapping, mapping)
     if extra_mapped_preds != []:
         dud = 0  # globl_mapped_predicates.append(extra_mapped_preds[0])  # globl_mapped_predicates.extend(mapping_extra)
         # TODO delete these 2 lines?
+    #for x in paired_relations:
+    #    print("MAP:", x)
     if semantics:
         for k,v in mapping.items():
+            con_count += 1
             con_s2v += conceptual_distance(k,v)
-    return relatio_structural_dist  # rel_s2v, con_s2v, len(globl_mapped_predicates)
+        for t_pred, s_pred, val in globl_mapped_predicates:
+            if t_pred[1] != None and s_pred[1] != None:
+                rel_count += 1
+                rel_s2v += relational_distance(t_pred[1], s_pred[1])
+    return relatio_structural_dist, rel_s2v, rel_count, con_s2v, con_count
 
 
 def return_unmapped_target_preds(target_graph, globl_mapped_predicates, semantics):
@@ -842,39 +847,10 @@ def possible_mop_up_achievable(t_preds_list, s_preds_list, bestEverPredMapping, 
     return mapping_extra, mapped_concepts  # return bestEverPredMapping, mapped_concepts
 
 
-def euclidean_distance_DEPRECATED(t_subj_in, t_subj_out, a_to_b, b_to_a, t_obj_in, t_obj_out,  w,x,y,z, l,m,
-                       s_subj_in, s_subj_out, p_to_q, q_to_p, s_obj_in, s_obj_out, e,f, w1,x1,y1,z1):  # new version
-    z = math.sqrt((t_subj_in - s_subj_in) ** 2 + (t_subj_out - s_subj_out) ** 2 + (a_to_b - p_to_q) ** 2 +
-                  (t_obj_in - s_obj_in) ** 2 + (b_to_a - q_to_p) ** 2 + (t_obj_out - s_obj_out) ** 2 +
-                  (w-w1)**2 + (x-x1)**2 + (y-y1)**2 + (z-z1)**2 )
-    return z  # + 0.0001
-
-
-def euclidean_distance_DEPRECATED(l1, l2):
-    nlis1 = np.array(l1)
-    nlis2 = np.array(l2)
-    diff = nlis1 - nlis2
-    for i in range(mid):
-        z += (num_list[i] - num_list[mid+i]) ** 2
-    return math.sqrt(z)  # + 0.0001
-
-
-def euclid_dist_2_DEPRECATED(*args):
-    z, rslt = len(args), 0
-    if z % 2 != 0:
-        sys.exit("error in vector length")
-    arg_lis = list(args)
-    limit = int(z/2)
-    for itm in range(limit):
-        rslt += abs(arg_lis[itm] - arg_lis[itm + limit])
-    return rslt
-# print(euclid_dist_2(0,0, 1,2,3,4))
-
-
 def relational_distance(t_in, s_in):  # using s2v sense2vec
     global term_separator
-    global s2v_verb_cache
-    if t_in == s_in:
+    global s2v_verb_cache, wnl
+    if t_in == s_in:  # contain == contains; contains =/= parameter
         return 0
     elif mode == "Code":  # identical relations only, identicality constraint
         return 1
@@ -884,11 +860,11 @@ def relational_distance(t_in, s_in):  # using s2v sense2vec
     t_reln = t_in.split(term_separator)[0]
     s_reln = s_in.split(term_separator)[0]
     if t_in == "" or s_in == "" or t_reln == "" or s_reln == "":  # treat this as an error?
-        return 0.918
+        return 0.9797
     if isinstance(t_reln, dict) and isinstance(s_reln, dict) and t_reln[0] == s_reln[0]:
         return 0.001
     elif second_head(t_reln) == second_head(s_reln):
-        return 0.001
+        return 0.01
     elif t_reln + "-" + s_reln in s2v_verb_cache:
         sim_score = s2v_verb_cache[t_reln + "-" + s_reln]
         return sim_score
@@ -897,8 +873,7 @@ def relational_distance(t_in, s_in):  # using s2v sense2vec
         return sim_score
     else:
         if s2v.get_freq(t_reln + '|VERB') is None or s2v.get_freq(s_reln + '|VERB') is None:
-            dud = 0
-            # print(t_reln, "...", s_reln)
+            print("H2-WNL: ", t_reln, "...", s_reln, end=" ")
             t_root = wnl.lemmatize(t_reln)
             s_root = wnl.lemmatize(s_reln)
             if s2v.get_freq(t_root + '|VERB') is None or s2v.get_freq(s_root + '|VERB') is None:
@@ -908,10 +883,9 @@ def relational_distance(t_in, s_in):  # using s2v sense2vec
                 s2v_verb_cache[t_reln + "-" + s_reln] = sim_score
                 return sim_score
         else:
-            sim_score = 1 - s2v.similarity([t_reln + '|VERB'], [s_reln + '|VERB'])
+            sim_score = s2v.similarity([t_reln + '|VERB'], [s_reln + '|VERB'])
             s2v_verb_cache[t_reln + "-" + s_reln] = sim_score
-            return sim_score
-# relational_distance("walk", "run_to")
+            return 1 - sim_score
 
 
 def conceptual_distance(str1, str2):
@@ -919,37 +893,58 @@ def conceptual_distance(str1, str2):
     global term_separator
     global s2v_noun_cache
     if str1 == str2:
-        return 0.0001
-    elif isinstance(str1, (int, float)):  # numeric generated graphs
+        return 0.00000
+    if isinstance(str1, (int, float)):  # numeric generated graphs
         return abs(str1 - str2)
-    arg1 = str1.replace(".", ":").split(term_separator)
+    arg1 = str1.replace(".", ":").split(term_separator)  # either : or _
     arg2 = str2.replace(".", ":").split(term_separator)
-    if mode == "Code":
-        if arg1[1] == arg2[1]:
-            inter_sectn = list(set(arg1) & set(arg2))
-            if len(inter_sectn) > 0:
-                return min(0.1, 0.5 / len(inter_sectn))
+    if mode == "Code":  # check for overlap '1. Block:1' and '158. Block:158'
+        if arg1 == arg2:
+            return 0
+        if arg1[0] == arg2[0]:
+            if arg1[1] == arg2[1]:
+                return 0.0
             else:
-                return 0.1
+                return 0.05
+        if len(arg1) > 1 and len(arg2) > 1:
+            if arg1[1] == arg2[1]:
+                return 0.02
+            else:
+                return 1
         else:
-            return 0.99
+            return 1
+        return 1  # catch-all
+        #elif arg1[1] == arg2[1]:
+        #    inter_sectn = list(set(arg1) & set(arg2))
+        #    if len(inter_sectn) > 0:
+        #        return min(0.1, 0.5 / len(inter_sectn))
+        #    else:
+        #        return 0.1
+        #else:
+        #    return 0.99
     elif mode == "English":
-        if arg1[0] + "-" + arg2[0] in s2v_verb_cache:
-            sim_score = s2v_verb_cache[arg1[0] + "-" + arg2[0]]
+        if arg1[0] + "-" + arg2[0] in s2v_noun_cache:
+            sim_score = s2v_noun_cache[arg1[0] + "-" + arg2[0]]
             return sim_score
-        elif arg2[0] + "-" + arg1[0] in s2v_verb_cache:
-            sim_score = s2v_verb_cache[arg2[0] + "-" + arg1[0]]
+        elif arg2[0] + "-" + arg1[0] in s2v_noun_cache:
+            sim_score = s2v_noun_cache[arg2[0] + "-" + arg1[0]]
             return sim_score
-        elif s2v.get_freq(arg1[0] + '|NOUN') is None or \
-                s2v.get_freq(arg2[0] + '|NOUN') is None:
-            return 1.35
+        sim_1 = s2v.get_freq(arg1[0] + '|NOUN')
+        sim_2 = s2v.get_freq(arg2[0] + '|NOUN')
+        if not sim_1 and not sim_2:
+            return 0.7  # both novel words/nouns
+        elif not sim_1 or not sim_2:
+            return 1.0
         else:
             sim_score = s2v.similarity([arg1[0] + '|NOUN'], [arg2[0] + '|NOUN'])
             s2v_noun_cache[arg1[0] + "-" + arg2[0]] = sim_score
             return 1 - sim_score
     else:
-        return 2
-
+        return 1.5
+#print(conceptual_distance("dog", "puppy"))
+#print(conceptual_distance("dog", "chair"))
+print(conceptual_distance('1. Block:1', '158. Block:158'))
+stop()
 
 def intersection(lst1, lst2):
     lst3 = [value for value in lst1 if value in lst2]
@@ -1101,8 +1096,6 @@ def build_graph_from_triple_list(triple_list):  # unused?
 
 
 
-
-
 def addRelationsToMapping(target_graph, source_graph, mapping_dict, s_decoding, t_decoding):  # LCS_Number
     "new one. GM.mapping={(t,s), (t2,s2)...}"
     this_mapping = mapping_dict.copy()  # was GM.mapping.
@@ -1160,3 +1153,33 @@ def return_list_of_mapped_concepts(list_of_mapped_preds):
 
 # align_words_by_s2v(['walk', 'shoot', 'pledge'], ['give', 'knew', 'saw', 'glided'])
 # stop()
+
+def project_implicit_word_pairs_BACKUP():
+    import os
+    global mode
+    # mode = "English"
+    base_path = "C:/Users/dodonoghue/Documents/Python-Me/data/Bias - implicit/"
+    source_files = os.listdir(base_path)
+    these_files = [i for i in source_files if i.endswith('.txt')]
+    for x in these_files:
+        with open(base_path + x, 'r') as in_file:
+            print("FILE", x)
+            text_contents = ""
+            for row in in_file:
+                if len(row) > 1:
+                    text_contents = row.split(",")
+                    w0, w1 = text_contents[0], text_contents[1].strip()
+                    if s2v.get_freq(w0 + '|NOUN') is None or s2v.get_freq(w1 + '|NOUN') is None:
+                        print("na")
+                    else:
+                        print(s2v.similarity(w0 + '|NOUN', w1 + '|NOUN'))
+                    #print(w0, w1, conceptual_distance(w0, w1))  #Sense2Vec
+                    if w0 == "career":
+                        dud = 0
+                    #doc1 = nlp(text_contents[0])
+                    #doc2 = nlp(text_contents[1])
+                    #print(doc1.similarity(doc2))
+            print(" ")
+            print(" ")
+            print()
+# project_implicit_word_pairs_BACKUP()
