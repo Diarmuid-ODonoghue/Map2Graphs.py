@@ -19,8 +19,6 @@ import random
 import ShowGraphs
 # import tqdm
 
-# print(" Graph edit distance", nx.graph_edit_distance(nx.cycle_graph(6), nx.cycle_graph(7)))
-# https://networkx.org/documentation/stable/reference/algorithms/similarity.html
 
 from nltk.stem import WordNetLemmatizer
 wnl = WordNetLemmatizer()
@@ -36,7 +34,7 @@ global global_mapped_predicates
 max_topology_distance = 20  # in terms of a node's in/out degree
 numeric_offset = 1000
 mode = "English"
-# mode = 'Code'
+mode = 'Code'
 if mode == "English":
     term_separator = "_"  # Map2Graphs.term_separator
     max_relational_distance = 1.1  # 0.9
@@ -48,7 +46,7 @@ elif mode == "Code":
 
 global s2v
 
-if True:
+if False:
     from sense2vec import Sense2Vec
     # s2v = Sense2Vec().from_disk("C:/Users/user/Documents/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
     s2v = Sense2Vec().from_disk("C:/Users/dodonoghue/Documents/Python-Me/Sense2Vec/s2v_reddit_2019_lg/")
@@ -619,7 +617,7 @@ def evaluate_mapping(target_graph, source_graph, globl_mapped_predicates, semant
         paired_relations.append([t_pred[1], s_pred[1]])
         rel_s2v += relational_distance(t_pred[1], s_pred[1])
     # Extend the mapping
-    print(" Next: mop-up", end=" ")
+    # print(" Next: mop-up", end=" ")
     count_limit = 0
     while True and count_limit < 3:
         unmapped_target_preds = return_unmapped_target_preds(target_graph, globl_mapped_predicates)
