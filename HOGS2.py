@@ -100,15 +100,16 @@ def similarity(w1, w2):
 
 # @staticmethod
 def generate_and_explore_mapping_space(target_graph, source_graph, semantics=True,
-                                       identical_edges_only=True):  # new one
+                                       identical_edges_nodes=True):  # new one
     global current_best_mapping, bestEverPredMapping, semantic_threshold, epsilon
     global tgt_edge_vector_dict, src_edge_vector_dict, beam_size
     global target_number_of_nodes, target_number_of_edges
     global source_number_of_nodes, source_number_of_edges
     global mode, max_relational_distance
-    if identical_edges_only:
+    if identical_edges_nodes:
         mode = "Code"
-        max_relational_distance = 0.01
+        max_relational_distance = 0.05  # edges only
+        max_conceptual_distance = 0.05  # nodes only
     else:
         mode = "English"
     target_number_of_nodes = target_graph.number_of_nodes()
@@ -943,8 +944,8 @@ def conceptual_distance(str1, str2):
         return 1.5
 #print(conceptual_distance("dog", "puppy"))
 #print(conceptual_distance("dog", "chair"))
-print(conceptual_distance('1. Block:1', '158. Block:158'))
-stop()
+# print(conceptual_distance('1. Block:1', '158. Block:158'))
+# stop()
 
 def intersection(lst1, lst2):
     lst3 = [value for value in lst1 if value in lst2]
