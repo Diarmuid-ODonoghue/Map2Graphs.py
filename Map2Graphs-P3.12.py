@@ -75,12 +75,12 @@ base_path = "C:/Users/dodonoghue/Documents/Python-Me/data"
 if True:
     file_type_filter = ".csv"
     identical_edges_only = True
-    mode = 'code'
+    mode = 'Code'
     generate_inferences = False
     max_graph_size = 200  # see prune_peripheral_nodes(graph) pruning
     skip_over_previous_results = False  # redo, repeat,
     term_separator = ":"  # Block:Else: If
-    semantics = True
+    semantics = False
     show_blended_graph = False
     show_input_graph = False
     base_path = "C:/Users/dodonoghue/Documents/Python-Me/"
@@ -92,7 +92,7 @@ if True:
     # localBranch = "/test/"
     # localBranch = "/Java Data/"
     # localBranch = "Python2Graph/output-graphs/"
-    localBranch = "/Python - Code Graphs/" # localBranch = "/Python data/"
+    localBranch = "data/Python data/" # localBranch = "/Python data/"
 else:
     file_type_filter = ".RVB" # Aln .csv ".OpIE" # "RVB"  # ".dcorf.csv" # RVB"  # filename ends with
     from nltk.corpus import wordnet_ic
@@ -919,7 +919,7 @@ def wn_sim_mine(w1, w2, partoS, use_lexname=True):
     global LCSLlist
     if w1 == w2:
         return [1, w1, 1, w2]
-    elif mode == 'code':
+    elif mode == 'Code':
         return [0, w1, 0, w2]
     lexname_out = ""
     lin_max, wup_max = 0, 0
@@ -1030,7 +1030,7 @@ def evaluate_relational_distance(tRel, sRel):  # drive, walk
         reslt[0], reslt[1] = 0.0, 0.0    # reslt[2], reslt[3], reslt[4], reslt[5] = 1.0, 1.0, 1.0, 1.0
         LinLCS = tRel
         WuPLCS = tRel
-    elif mode == 'code':
+    elif mode == 'Code':
         reslt = numpy.zeros(7)
         t_rel_split = tRel.split(term_separator)
         s_rel_split = sRel.split(term_separator)
@@ -1080,7 +1080,7 @@ def evaluate_conceptual_distance(tConc, sConc):  # ('cat','dog')
         reslt[5] = 0
         LinLCS = tConc
         WuPLCS = tConc
-    elif mode == 'code':
+    elif mode == 'Code':
         if head(tConc) == head(sConc):
             reslt[4] = 0
             reslt[5] = 0
@@ -1211,13 +1211,14 @@ def mapping_process(target_graph, source_graph):
             before_seconds = time.time()
             list_of_mapped_preds, number_mapped_predicates, mapping = \
                 HOGS.generate_and_explore_mapping_space(target_graph, source_graph, semantics=semantics,
-                                                        identical_edges_only=False)
+                                                        identical_edges_only=identical_edges_only)
             mapping_run_time = time.time() - before_seconds
         elif algorithm == "HOGS2":
             before_seconds = time.time()
             (list_of_mapped_preds, number_mapped_predicates, mapping, relatio_structural_dist,
-             rel_s2v, rel_count, con_s2v, con_count) = HOGS2.generate_and_explore_mapping_space(target_graph, source_graph, semantics=semantics,
-                                                                     identical_edges_only=False)
+             rel_s2v, rel_count, con_s2v, con_count) = HOGS2.generate_and_explore_mapping_space(target_graph, source_graph,
+                                                                                                semantics=semantics,
+                                                                     identical_edges_only=identical_edges_only)
             mapping_run_time = time.time() - before_seconds
             dud = 0
         print(" HOGS2 Time:", "{:.3f}".format(mapping_run_time), end="   ")
@@ -1335,7 +1336,9 @@ def develop_analogy(target_graph, source_graph):
     num_novel_counterparts = 0
 
     list_of_target_preds = returnEdgesAsList(target_graph)  # will contain unmapped target preds at the end
-    for pred1, pred2, scor in list_of_mapped_preds:
+    #if mode == "code":
+    #    list_of_mapped_preds = list_of_target_preds
+    for pred1, pred2, scor in list_of_mapped_preds: # 10 June 2025 list_of_mapped_preds (slightly larger)
         if pred1[0] == pred2[0] and pred1[1] == pred2[1] and pred1[2] == pred2[2]:  # identical
             number_of_identical_predicates += 1
         mapping_graph.add_node(pred1[0]+"|"+pred2[0], label=pred1[0]+" | "+pred2[0])  # 4relist_of_mapped_preds = [[target-x, source-x] ...]
@@ -1345,7 +1348,7 @@ def develop_analogy(target_graph, source_graph):
             a = my_s2v(pred1[0], pred2[0], "NOUN")
             b = my_s2v(pred1[2], pred2[2], "NOUN")
             c = my_s2v(pred1[1], pred2[1], "VERB")
-        elif mode == "code":
+        elif mode == "Code":
             a = HOGS2.conceptual_distance(pred1[0], pred2[0])
             b = HOGS2.conceptual_distance(pred1[2], pred2[2])
             c = HOGS2.relational_distance(pred1[1], pred2[1])
@@ -1399,7 +1402,7 @@ def generateCWSGInferences(tgtGraph, srcGrf, mapped_preds_lis):  # generateCWSGI
             o = 1
         if reln in GM.mapping or reln in ['assert']:  # Aris - for code data only
             r = 1
-        if reln in ['assert'] and mode == 'code':
+        if reln in ['assert'] and mode == 'Code':
             print(" ASSERT found ", end="")
         subjMap = GM.mapping.get(subj)
         relnMap = GM.mapping.get(reln)
@@ -1455,7 +1458,7 @@ def calculate_analogy_metrics(tgt_graph, source_graph, best_analogy):  # source 
             set_of_mapped_target_concepts.add(t0)
             list_of_mapped_target_relations.append(t1)
             set_of_mapped_target_concepts.add(t2)
-            if mode == 'code':
+            if mode == 'Code':
                 res, Lin_LCS, Wu_LCS = evaluate_relational_distance(t1, s1)
                 analogyFilewriter.writerow(['Rel', t1, s1, res[4], res[5], Lin_LCS, Wu_LCS])
                 rel_sim_vec = rel_sim_vec + res
@@ -1729,7 +1732,7 @@ def blend_with_all_sources(targetFile):
     if target_graph.number_of_edges() > max_graph_size:
         target_graph = prune_peripheral_nodes(target_graph)
     for nextSourceFile in all_csv_files:
-        if False and nextSourceFile == targetFile: # skip self comparison?
+        if True and nextSourceFile == targetFile: # skip self comparison?
             continue
         p2 = nextSourceFile.rfind(".")
         print("\n\n#", mode, "================", "  ", targetFile[0:p1], "  <- ", nextSourceFile[0:p2], "======= ",
@@ -2345,8 +2348,8 @@ def generate_all_FDG_graphs():  # FDG - Force Directed Graph
     #print("FDG in ", fdg_file )
     os.startfile(fdg_file)  # display the directory contents
     stop()
-generate_all_FDG_graphs()
+# generate_all_FDG_graphs()
 
-# blend_all_files()
+blend_all_files()
 # stop()
 # blend_file_groups()

@@ -41,7 +41,7 @@ bestEverPredMapping = []
 bestEverNodeMapping = {}
 
 
-mode = "English"
+# mode = "English"
 mode = 'Code'
 if mode == "English":
     term_separator = "_"  # Map2Graphs.term_separator
@@ -54,6 +54,8 @@ if mode == "English":
 else:
     term_separator = ":"
     max_conceptual_distance = 0.88
+    max_conceptual_distance = 0.2
+    max_relational_distance = 0.2
 
 global s2v
 if False: # Not need for source code operations
@@ -100,13 +102,13 @@ def similarity(w1, w2):
 
 # @staticmethod
 def generate_and_explore_mapping_space(target_graph, source_graph, semantics=True,
-                                       identical_edges_nodes=True):  # new one
+                                       identical_edges_only=True):  # new one
     global current_best_mapping, bestEverPredMapping, semantic_threshold, epsilon
     global tgt_edge_vector_dict, src_edge_vector_dict, beam_size
     global target_number_of_nodes, target_number_of_edges
     global source_number_of_nodes, source_number_of_edges
     global mode, max_relational_distance
-    if identical_edges_nodes:
+    if identical_edges_only:
         mode = "Code"
         max_relational_distance = 0.05  # edges only
         max_conceptual_distance = 0.05  # nodes only
@@ -175,13 +177,27 @@ def generate_and_explore_mapping_space(target_graph, source_graph, semantics=Tru
                                       [], semantics)
     relatio_structural_dist, rel_s2v, rel_count, con_s2v, con_count = \
         evaluate_mapping(target_graph, source_graph, reslt, semantics)  # bestEverPredMapping
-    print("SCORES-HOGS2", relatio_structural_dist, " ", rel_s2v, rel_count, con_s2v, rel_count)
+    #print("SCORES-HOGS2", relatio_structural_dist, " ", rel_s2v, rel_count, con_s2v, rel_count)
     dud = 0
-    #if target_graph.graph['Graphid'] == "98 Ratterman E3 2 MereApp.T.RVB":
-    print("***")
-    print('Graphid',  target_graph.graph['Graphid'] )
-    return bestEverPredMapping, len(bestEverPredMapping), mapping, relatio_structural_dist, rel_s2v, rel_count, \
+    #print("***")
+    #print('Graphid',  target_graph.graph['Graphid'] )
+    if mode == 'Code':
+        repairedPredMapping = complete_best_ever_pred_mapping(target_graph, source_graph, bestEverPredMapping)
+        return repairedPredMapping, len(bestEverPredMapping), mapping, relatio_structural_dist, rel_s2v, rel_count, \
         con_s2v, con_count
+    else:
+        return bestEverPredMapping, len(bestEverPredMapping), mapping, relatio_structural_dist, rel_s2v, rel_count, \
+            con_s2v, con_count
+
+
+def complete_best_ever_pred_mapping(target_graph, source_graph, bestEverPredMapping):
+    repaired_best_mapping = []
+    for s, t, v in bestEverPredMapping:
+        #source_graph.nodes(s[0]) # nx.get_edge_attributes(t_grf, "label")))
+        t_edg_labl = list(target_graph.get_edge_data(s[0], s[2]))[0]
+        s_edg_labl = list(source_graph.get_edge_data(t[0], t[2]))[0]
+        repaired_best_mapping.append([ [s[0], s_edg_labl, s[2]], [t[0], t_edg_labl, t[2]], v])
+    return repaired_best_mapping
 
 
 def trim_multi_edges(grf):  # remove Multi edges from iterable search space
@@ -434,8 +450,12 @@ def explore_mapping_space(t_grf, s_grf, t_preds_list, s_preds_list, globl_mapped
             # FIXME find most similar relation pair
             reslt = align_words_by_s2v(t_rels, s_rels)
             t_reln, s_reln, reln_dist = reslt[0][0], reslt[0][1], reslt[0][2]
-            subj_dist = similarity(t_subj + "|NOUN", s_subj + "|NOUN")
-            obj_dist = similarity(t_obj + "|NOUN", s_obj + "|NOUN")
+            if mode == "English":
+                subj_dist = similarity(t_subj + "|NOUN", s_subj + "|NOUN")
+                obj_dist = similarity(t_obj + "|NOUN", s_obj + "|NOUN")
+            else:
+                subj_dist = conceptual_distance(t_subj, s_subj)
+                obj_dist =  conceptual_distance(t_obj, s_obj)
         else:
             t_reln, s_reln = None, None
             subj_dist, reln_dist, obj_dist = 0, 0, 0
@@ -1049,7 +1069,7 @@ def build_graph_from_triple_list(triple_list):  # unused?
             methodName, noun1, verb, noun2 = triple
         elif len(triple) == 0:
             continue
-        elif mode == 'code' or len(triple) == 6:  # Code Graphs
+        elif mode == 'Code' or len(triple) == 6:  # Code Graphs
             if triple[0] == "CodeContracts":  # skip the contracts?
                 pass  # break
             if len(triple) == 6:
